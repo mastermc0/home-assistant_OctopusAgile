@@ -93,91 +93,90 @@ def setup(hass, config):
 
         timer_list = []
         timers = config["octopusagile"].get("timers", [])
-        if len(timers) > 0:
-            for timer in timers:
-                entity_id = timer["entity_id"]
-                numHrs = timer["numHrs"]
-                requirements = []
-                requirements = timer.get("requirements", [])
-                day_from = timer["day_from"]
-                time_from = timer["time_from"]
-                day_to = timer["day_to"]
-                time_to = timer["time_to"]
-                params = timer.get("params", None)
-                block = timer.get("block", False)
+        for timer in timers:
+            entity_id = timer["entity_id"]
+            numHrs = timer["numHrs"]
+            requirements = []
+            requirements = timer.get("requirements", [])
+            day_from = timer["day_from"]
+            time_from = timer["time_from"]
+            day_to = timer["day_to"]
+            time_to = timer["time_to"]
+            params = timer.get("params", None)
+            block = timer.get("block", False)
+        
+            # date_from = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            tomorrow = date.today() + timedelta(days=1)
+            today = date.today()
+            # now = datetime.now()
+            # date_to = tomorrow.strftime("%Y-%m-%dT19:00:00Z")
+        
+        
+            if day_from == "today":
+                parsed_date_from = today.strftime(f"%Y-%m-%dT{ time_from }Z")
+            elif day_from == "tomorrow":
+                parsed_date_from = tomorrow.strftime(f"%Y-%m-%dT{ time_from }Z")
+        
+            if day_to == "today":
+                parsed_date_to = today.strftime(f"%Y-%m-%dT{ time_to }Z")
+            elif day_to == "tomorrow":
+                parsed_date_to = tomorrow.strftime(f"%Y-%m-%dT{ time_to }Z")
+        
             
-                # date_from = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-                tomorrow = date.today() + timedelta(days=1)
-                today = date.today()
-                # now = datetime.now()
-                # date_to = tomorrow.strftime("%Y-%m-%dT19:00:00Z")
+            parsed_requirements = []
+            for requirement in requirements:
+                parsed_requirement = {}
+                parsed_requirement["slots"] = int(requirement["numHrs"]*2)
+                parsed_requirement["numHrs"] = requirement["numHrs"]
+                if requirement["day_from"] == "today":
+                    parsed_requirement["time_from"] = today.strftime(f"%Y-%m-%dT{ requirement['time_from'] }Z")
+                elif requirement["day_from"] == "tomorrow":
+                    parsed_requirement["time_from"] = tomorrow.strftime(f"%Y-%m-%dT{ requirement['time_from'] }Z")
+        
+                if requirement["day_to"] == "today":
+                    parsed_requirement["time_to"] = today.strftime(f"%Y-%m-%dT{ requirement['time_to'] }Z")
+                elif requirement["day_to"] == "tomorrow":
+                    parsed_requirement["time_to"] = tomorrow.strftime(f"%Y-%m-%dT{ requirement['time_to'] }Z")
+                    parsed_requirements.append(parsed_requirement)
             
-            
-                if day_from == "today":
-                    parsed_date_from = today.strftime(f"%Y-%m-%dT{ time_from }Z")
-                elif day_from == "tomorrow":
-                    parsed_date_from = tomorrow.strftime(f"%Y-%m-%dT{ time_from }Z")
-            
-                if day_to == "today":
-                    parsed_date_to = today.strftime(f"%Y-%m-%dT{ time_to }Z")
-                elif day_to == "tomorrow":
-                    parsed_date_to = tomorrow.strftime(f"%Y-%m-%dT{ time_to }Z")
-            
-                
-                parsed_requirements = []
-                for requirement in requirements:
-                    parsed_requirement = {}
-                    parsed_requirement["slots"] = int(requirement["numHrs"]*2)
-                    parsed_requirement["numHrs"] = requirement["numHrs"]
-                    if requirement["day_from"] == "today":
-                        parsed_requirement["time_from"] = today.strftime(f"%Y-%m-%dT{ requirement['time_from'] }Z")
-                    elif requirement["day_from"] == "tomorrow":
-                        parsed_requirement["time_from"] = tomorrow.strftime(f"%Y-%m-%dT{ requirement['time_from'] }Z")
-            
-                    if requirement["day_to"] == "today":
-                        parsed_requirement["time_to"] = today.strftime(f"%Y-%m-%dT{ requirement['time_to'] }Z")
-                    elif requirement["day_to"] == "tomorrow":
-                        parsed_requirement["time_to"] = tomorrow.strftime(f"%Y-%m-%dT{ requirement['time_to'] }Z")
-                        parsed_requirements.append(parsed_requirement)
-                
-                if block == False:
-                    rates = myrates.get_rates(parsed_date_from, parsed_date_to)
-                    date_rates = rates["date_rates"]
-                    required_slots = int(numHrs*2)
-                    min_rates = myrates.get_min_times(required_slots, date_rates, parsed_requirements)
-                    entity_min_rates = {}
-                    for time, rate in min_rates.items():
-                        entity_min_rates[time] = {"params": params, "rate": rate}
-                    sorted_mins = dict(OrderedDict(sorted(entity_min_rates.items())))
-                    timer_list.append({"entity_id": entity_id, "times":sorted_mins})
-            
-                else:
-                    total_time = 0
-                    entity_min_rates = {}
-                    if parsed_requirements:
-                        for requirement in parsed_requirements:
-                            rates = myrates.get_rates(requirement["time_from"], requirement["time_to"])["date_rates"]
-                            min_rates = myrates.get_min_time_run(requirement["numHrs"], rates)
-                            start_time = next(iter(min_rates))
-                            for entry in min_rates[start_time]["times"]:
-                                for time, rate in entry.items():
-                                    entity_min_rates[time] = {"params": params, "rate": rate}
-                                    total_time += 0.5
-                        sorted_mins = dict(OrderedDict(sorted(entity_min_rates.items())))
-                        timer_list.append({"entity_id": entity_id, "times":sorted_mins})
-                        if numHrs != total_time:
-                            _LOGGER.warning(f"Timer block total requirements time != numHrs, only allocating time blocks specified in requirements of total {total_time}")
-                        # timer_list.append({"entity_id": entity_id, "times":sorted_mins})
-                    else:
-                        rates = myrates.get_rates(parsed_date_from, parsed_date_to)["date_rates"]
-                        min_rates = myrates.get_min_time_run(numHrs, rates)
+            if block == False:
+                rates = myrates.get_rates(parsed_date_from, parsed_date_to)
+                date_rates = rates["date_rates"]
+                required_slots = int(numHrs*2)
+                min_rates = myrates.get_min_times(required_slots, date_rates, parsed_requirements)
+                entity_min_rates = {}
+                for time, rate in min_rates.items():
+                    entity_min_rates[time] = {"params": params, "rate": rate}
+                sorted_mins = dict(OrderedDict(sorted(entity_min_rates.items())))
+                timer_list.append({"entity_id": entity_id, "times":sorted_mins})
+        
+            else:
+                total_time = 0
+                entity_min_rates = {}
+                if parsed_requirements:
+                    for requirement in parsed_requirements:
+                        rates = myrates.get_rates(requirement["time_from"], requirement["time_to"])["date_rates"]
+                        min_rates = myrates.get_min_time_run(requirement["numHrs"], rates)
                         start_time = next(iter(min_rates))
                         for entry in min_rates[start_time]["times"]:
                             for time, rate in entry.items():
                                 entity_min_rates[time] = {"params": params, "rate": rate}
                                 total_time += 0.5
-                        sorted_mins = dict(OrderedDict(sorted(entity_min_rates.items())))
-                        timer_list.append({"entity_id": entity_id, "times":sorted_mins})
+                    sorted_mins = dict(OrderedDict(sorted(entity_min_rates.items())))
+                    timer_list.append({"entity_id": entity_id, "times":sorted_mins})
+                    if numHrs != total_time:
+                        _LOGGER.warning(f"Timer block total requirements time != numHrs, only allocating time blocks specified in requirements of total {total_time}")
+                    # timer_list.append({"entity_id": entity_id, "times":sorted_mins})
+                else:
+                    rates = myrates.get_rates(parsed_date_from, parsed_date_to)["date_rates"]
+                    min_rates = myrates.get_min_time_run(numHrs, rates)
+                    start_time = next(iter(min_rates))
+                    for entry in min_rates[start_time]["times"]:
+                        for time, rate in entry.items():
+                            entity_min_rates[time] = {"params": params, "rate": rate}
+                            total_time += 0.5
+                    sorted_mins = dict(OrderedDict(sorted(entity_min_rates.items())))
+                    timer_list.append({"entity_id": entity_id, "times":sorted_mins})
 
         # Add any free slots to the timer for each moneymaker device
         
